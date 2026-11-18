@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Release Incident Correlator
 
 ## Project Title
@@ -110,3 +111,6 @@ The AI layer is fully documented in a separate PDF. It explains how I call the G
 *Second incident example.*
 ![Incident 2](./images/incident%202%20db.png)
 
+=======
+# Release-Incident-Correlator
+>>>>>>> ad39c96af5187f49a78bc9ef332717cfae4c1e02
