@@ -23,6 +23,15 @@ export default defineConfig(({ mode }) => {
           rewrite: (path) => path.replace(/^\/api/, ''),
           proxyTimeout: 600_000,
           timeout: 600_000,
+          configure: (proxy) => {
+            proxy.on('error', (err, req, res) => {
+              // Gracefully handle socket reset/abort without crashing Vite server
+              if (res && !res.headersSent && typeof res.writeHead === 'function') {
+                res.writeHead(502, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Proxy error or backend unreachable', detail: err.message }));
+              }
+            });
+          },
         },
       },
     },

@@ -198,7 +198,7 @@ function AppShell({ theme, toggleTheme }) {
 }
 
 // ── Root: Landing has NO sidebar, everything else uses AppShell ────────────────
-import ChatBot from './components/ChatBot';
+// import ChatBot from './components/ChatBot';
 
 export default function App() {
   const [themeMode, setThemeMode] = useState('dark');
@@ -231,7 +231,8 @@ export default function App() {
       }}
     >
       <ToastProvider>
-        <ChatBot />
+        {/* Sparky AI ChatBot commented out: */}
+        {/* <ChatBot /> */}
         <Routes>
           {/* Full-page landing — no app shell */}
           <Route path="/" element={<Landing theme={themeMode} toggleTheme={toggleTheme} />} />

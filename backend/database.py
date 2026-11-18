@@ -1,10 +1,12 @@
 """
-Database layer — PostgreSQL only (psycopg2).
+Database layer — PostgreSQL (psycopg2) with automatic SQLite local fallback.
 Public API:
     get_db()   → context-manager-compatible connection wrapper
     init_db()  → idempotent schema bootstrap (safe to call on every startup)
 """
+import os
 import logging
+import sqlite3
 import psycopg2
 import psycopg2.extras
 
@@ -12,8 +14,11 @@ from config import CONNECTION_STRING_PSQL
 
 log = logging.getLogger(__name__)
 
+DB_DIR = os.path.dirname(os.path.abspath(__file__))
+SQLITE_PATH = os.path.join(DB_DIR, "ric.db")
 
-# ── Connection wrapper ────────────────────────────────────────────────────────
+
+# ── Connection wrappers ────────────────────────────────────────────────────────
 
 class _PgConn:
     """Thin psycopg2 wrapper — exposes .execute() / .commit() / .close()."""
@@ -35,7 +40,37 @@ class _PgConn:
     def close(self):
         self._conn.close()
 
-    # context-manager support
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, *_):
+        if exc_type:
+            self.rollback()
+        self.close()
+
+
+class _SqliteConn:
+    """Thin sqlite3 wrapper matching psycopg2 RealDictCursor interface."""
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def execute(self, sql: str, params=None):
+        # Convert %s placeholder to ? for sqlite3
+        sql_converted = sql.replace("%s", "?")
+        cur = self._conn.cursor()
+        cur.execute(sql_converted, params or ())
+        return cur
+
+    def commit(self):
+        self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
+
+    def close(self):
+        self._conn.close()
+
     def __enter__(self):
         return self
 
@@ -47,22 +82,21 @@ class _PgConn:
 
 # ── Public factory ────────────────────────────────────────────────────────────
 
-def get_db() -> _PgConn:
-    if not CONNECTION_STRING_PSQL:
-        raise RuntimeError(
-            "CONNECTION_STRING_PSQL is not set. "
-            "Add it to backend/.env before starting the server."
-        )
-    conn = psycopg2.connect(CONNECTION_STRING_PSQL)
-    return _PgConn(conn)
+def get_db():
+    if CONNECTION_STRING_PSQL:
+        conn = psycopg2.connect(CONNECTION_STRING_PSQL)
+        return _PgConn(conn)
+    
+    # SQLite local fallback
+    conn = sqlite3.connect(SQLITE_PATH, timeout=30.0)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return _SqliteConn(conn)
 
 
-# ── Schema ────────────────────────────────────────────────────────────────────
-# Every table uses a BIGSERIAL surrogate PK so uploads NEVER conflict.
-# incident_ref / commit_hash carry the original caller-supplied identifiers
-# (with a plain index, not UNIQUE) so the same CSV/JSON can be re-uploaded.
+# ── Schemas ───────────────────────────────────────────────────────────────────
 
-_SCHEMA = """
+_PSQL_SCHEMA = """
 CREATE TABLE IF NOT EXISTS incidents (
     id            BIGSERIAL PRIMARY KEY,
     incident_ref  TEXT        NOT NULL DEFAULT '',
@@ -116,13 +150,70 @@ CREATE TABLE IF NOT EXISTS upload_sessions (
 );
 """
 
+_SQLITE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS incidents (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    incident_ref  TEXT        NOT NULL DEFAULT '',
+    title         TEXT        NOT NULL,
+    description   TEXT        NOT NULL DEFAULT '',
+    timestamp     TEXT        NOT NULL,
+    severity      TEXT        NOT NULL DEFAULT 'medium',
+    uploaded_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_incidents_ref ON incidents (incident_ref);
+
+CREATE TABLE IF NOT EXISTS commits (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    commit_hash   TEXT        NOT NULL DEFAULT '',
+    author        TEXT        NOT NULL DEFAULT 'Unknown',
+    email         TEXT        NOT NULL DEFAULT '',
+    message       TEXT        NOT NULL DEFAULT '',
+    timestamp     TEXT        NOT NULL,
+    branch        TEXT        NOT NULL DEFAULT 'main',
+    files_changed TEXT        NOT NULL DEFAULT '[]',
+    diff          TEXT        NOT NULL DEFAULT '',
+    uploaded_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_commits_hash ON commits (commit_hash);
+
+CREATE TABLE IF NOT EXISTS analyses (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id          TEXT        NOT NULL DEFAULT '',
+    run_label       TEXT,
+    incident_id     INTEGER     REFERENCES incidents(id) ON DELETE CASCADE,
+    commit_id       INTEGER     REFERENCES commits(id)   ON DELETE CASCADE,
+    author          TEXT,
+    confidence      REAL        NOT NULL DEFAULT 0,
+    explanation     TEXT,
+    recommendation  TEXT,
+    affected_files  TEXT        NOT NULL DEFAULT '[]',
+    blast_radius    TEXT        NOT NULL DEFAULT 'medium',
+    created_at      DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_analyses_run ON analyses (run_id);
+
+CREATE TABLE IF NOT EXISTS upload_sessions (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    type         TEXT        NOT NULL,
+    filename     TEXT,
+    record_count INTEGER     NOT NULL DEFAULT 0,
+    created_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
 
 def init_db() -> None:
-    log.info("Initialising PostgreSQL schema …")
+    schema = _PSQL_SCHEMA if CONNECTION_STRING_PSQL else _SQLITE_SCHEMA
+    db_name = "PostgreSQL" if CONNECTION_STRING_PSQL else "SQLite (ric.db)"
+    log.info(f"Initialising {db_name} schema …")
     with get_db() as conn:
-        for stmt in _SCHEMA.strip().split(";"):
+        for stmt in schema.strip().split(";"):
             stmt = stmt.strip()
             if stmt:
                 conn.execute(stmt + ";")
         conn.commit()
-    log.info("PostgreSQL schema ready.")
+    log.info(f"{db_name} schema ready.")
+
