@@ -50,7 +50,7 @@ Here is our full workflow:
 
 ## AI Usage Document
 The AI layer is fully documented in a separate PDF. It explains how I call the Groq LLM, the prompt engineering strategy, confidence‑score calculations, and how recommendations are post‑processed. The document also outlines security and privacy considerations, showing that no raw logs leave the system.  
-**View the AI usage details:** [AI Usage Document](./document/RELEASE%20INCIDENT%20CORRELATOR.pdf)
+
 
 ## Architecture Diagram
 ![Architecture Diagram](./images/architecture.png)
