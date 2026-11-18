@@ -15,9 +15,6 @@ To solve this problem, I created RIC. It is an intelligent tool that automatical
 - **Backend:** Render  
 
 
-## Demo Workflow
-
-- **Live Demo Video:** [Watch full demo](https://youtu.be/fMzumygK6kQ?si=fATBtJIHJz0Q3VEJ)
 
 Here is our full workflow:
 1. **Quick Uploads & Preview** – Users drag‑and‑drop incident logs and commit files; the UI instantly renders a preview table.
@@ -69,47 +66,6 @@ The AI layer is fully documented in a separate PDF. It explains how I call the G
 5. **Persistence & Analytics** – Results are saved, enabling historical trend charts and the AI chat bot to reference prior incidents.
 6. **Feedback Loop** – User feedback on suggestions is stored for future fine‑tuning of prompt templates.
 
-## Outcomes
-### Landing page
-*Premium entry screen with subtle motion.*
-![Landing page](./images/Landing%20page.png)
-
-### Applications
-*Enterprise‑level usage showcase.*
-![Applications](./images/enterprises.png)
-
-### Workflow
-*End‑to‑end processing pipeline visualised.*
-![Workflow](./images/working.png)
-
-### Dashboard
-*Real‑time analytics dashboard.*
-![Dashboard](./images/dashboard.png)
-
-### AI Report
-*AI‑generated incident report.*
-![AI Report](./images/result.png)
-
-### History Analysis
-*Historical incident database view.*
-![History Analysis](./images/History.png)
-
-### AI Interface
-*Interactive AI chat interface.*
-![AI Interface](./images/Ai%20interface.png)
-
-## Database Screenshots
-### Tables
-*Database schema overview.*
-![Tables](./images/tables.png)
-
-### Incident DB
-*Incident records table.*
-![Incident DB](./images/incident%20db.png)
-
-### Incident 2
-*Second incident example.*
-![Incident 2](./images/incident%202%20db.png)
 
 =======
 # Release-Incident-Correlator
