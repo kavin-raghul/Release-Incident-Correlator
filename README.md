@@ -68,5 +68,4 @@ The AI layer is fully documented in a separate PDF. It explains how I call the G
 
 
 =======
-# Release-Incident-Correlator
->>>>>>> ad39c96af5187f49a78bc9ef332717cfae4c1e02
+
